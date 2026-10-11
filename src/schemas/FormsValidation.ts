@@ -211,6 +211,24 @@ const filterSupplierSchema = z.object({
   active: z.string().optional(),
 });
 
+const emailSubmissionFormSchema = z
+  .object({
+    title: z.string().trim().max(100, "Title must be 100 characters or less."),
+    message: z
+      .string()
+      .trim()
+      .nonempty({ message: "Write a message for users." })
+      .max(1000, "Message must be 1000 characters or less."),
+    resumeAt: z.string().optional(),
+  })
+  .refine(
+    (data) => !data.resumeAt || new Date(data.resumeAt).getTime() > Date.now(),
+    {
+      message: "Expected resume time must be in the future.",
+      path: ["resumeAt"],
+    }
+  );
+
 export {
   createAccountFormSchema,
   loginAccountFormSchema,
@@ -234,4 +252,5 @@ export {
   deleteOnlySchema,
   addCategoryWhatsappFormSchema,
   markSupplierPremiumSchema,
+  emailSubmissionFormSchema,
 };

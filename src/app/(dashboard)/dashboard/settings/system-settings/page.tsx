@@ -8,15 +8,20 @@ import { Pencil, PlusCircle } from "lucide-react";
 import { SkeletonCard } from "@/components/Loaders/SkeletonLoader";
 import {
   useGetEmailRewards,
+  useGetEmailSubmissionSetting,
   useGetReferralBonus,
   useGetReferralBonusPerEmail,
   useGetSignupBonus,
   useGetThresoldPerDay,
   useGetThresoldPerWeek,
   useGetWithdrawThreshold,
+  useUpdateEmailSubmissionSetting,
 } from "@/hooks/apis/useSystemSettings";
 import { Badge } from "@/components/ui/badge";
 import EmailRewardModal from "@/components/Forms/forms-modal/system-settings/AddEmailReward";
+import EmailSubmissionModal from "@/components/Forms/forms-modal/system-settings/email-submission/EmailSubmissionModal";
+import { SweetAlert } from "@/components/alerts/SweetAlert";
+import { format } from "date-fns";
 import { useState } from "react";
 import WithdrawlThresholdModal from "@/components/Forms/forms-modal/system-settings/withdrawl-threshold/AddWithdrawlThreshold";
 import SignupBonusModal from "@/components/Forms/forms-modal/system-settings/signup-bonus/AddSignBonus";
@@ -26,6 +31,33 @@ import ReferralBonusPerMail from "@/components/Forms/forms-modal/system-settings
 
 export default function SystemSettings() {
   const { token } = useContextConsumer();
+
+  // email submission (disable/enable for users)
+  const [isEmailSubmissionModalOpen, setIsEmailSubmissionModalOpen] =
+    useState(false);
+  const {
+    data: emailSubmission,
+    isLoading: emailSubmissionLoading,
+    isFetching: emailSubmissionFetching,
+    refetch: refetchEmailSubmission,
+  } = useGetEmailSubmissionSetting(token);
+  const { mutate: updateEmailSubmission, isPending: updatingEmailSubmission } =
+    useUpdateEmailSubmissionSetting();
+  const emailSubmissionSetting: EmailSubmissionSetting | null =
+    emailSubmission?.success ? emailSubmission.data : null;
+
+  const handleEnableEmailSubmission = async () => {
+    const isConfirmed = await SweetAlert(
+      "Enable Email Submission?",
+      "Users will be able to submit emails again.",
+      "question",
+      "Yes, enable it!",
+      "#15803D"
+    );
+    if (isConfirmed) {
+      updateEmailSubmission({ data: { isDisabled: false }, token });
+    }
+  };
 
   //email reward
   const [isAddRewardModalOpen, setIsAddRewardModalOpen] = useState(false);
@@ -137,6 +169,110 @@ export default function SystemSettings() {
             <h2 className="text-2xl font-bold text-primary mb-4">
               System Settings
             </h2>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 dark:border-zinc-700 bg-gradient-to-br from-white via-gray-50 to-gray-100 dark:from-zinc-900 dark:via-zinc-800 dark:to-zinc-900 p-6">
+            <div className="flex items-center justify-between mb-4 gap-6">
+              <div>
+                <h3 className="text-md font-semibold text-gray-800 dark:text-gray-100">
+                  Email Submission
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Disable email submission while you are updating the system.
+                  Users will see your notice as a popup.
+                </p>
+              </div>
+              {emailSubmissionLoading ||
+              !emailSubmissionSetting ? null : emailSubmissionSetting.isDisabled ? (
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-sm flex items-center gap-2"
+                    title="Edit notice"
+                    onClick={() => setIsEmailSubmissionModalOpen(true)}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="text-sm text-white"
+                    disabled={updatingEmailSubmission}
+                    onClick={handleEnableEmailSubmission}
+                  >
+                    Enable
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="text-sm"
+                  onClick={() => setIsEmailSubmissionModalOpen(true)}
+                >
+                  Disable
+                </Button>
+              )}
+            </div>
+            {emailSubmissionLoading ? (
+              <SkeletonCard className="w-full h-16" />
+            ) : !emailSubmissionSetting ? (
+              <div className="flex items-center gap-4">
+                <p className="text-sm text-red-500">
+                  Could not load the email submission status.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-sm"
+                  disabled={emailSubmissionFetching}
+                  onClick={() => refetchEmailSubmission()}
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-4">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    Current Status:
+                  </span>
+                  <Badge
+                    variant={
+                      emailSubmissionSetting.isDisabled
+                        ? "destructive"
+                        : "success"
+                    }
+                    className="text-sm px-3 py-1 rounded-full"
+                  >
+                    {emailSubmissionSetting.isDisabled
+                      ? "Disabled"
+                      : "Enabled"}
+                  </Badge>
+                </div>
+                {emailSubmissionSetting.isDisabled && (
+                  <div className="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 space-y-1 text-sm">
+                    {emailSubmissionSetting.title && (
+                      <p className="font-semibold text-gray-800 dark:text-gray-100">
+                        {emailSubmissionSetting.title}
+                      </p>
+                    )}
+                    <p className="whitespace-pre-wrap break-words text-gray-700 dark:text-gray-300">
+                      {emailSubmissionSetting.message}
+                    </p>
+                    {emailSubmissionSetting.resumeAt && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 pt-1">
+                        Expected resume:{" "}
+                        {format(
+                          new Date(emailSubmissionSetting.resumeAt),
+                          "dd MMM yyyy, hh:mm a"
+                        )}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="rounded-2xl border border-gray-200 dark:border-zinc-700 bg-gradient-to-br from-white via-gray-50 to-gray-100 dark:from-zinc-900 dark:via-zinc-800 dark:to-zinc-900 p-6">
@@ -578,6 +714,13 @@ export default function SystemSettings() {
         open={isUpdateRPEModalOpen}
         onOpenChange={setIsUpdateRPEModalOpen}
         bonus={viewRPEBonus}
+      />
+
+      {/* email submission */}
+      <EmailSubmissionModal
+        open={isEmailSubmissionModalOpen}
+        onOpenChange={setIsEmailSubmissionModalOpen}
+        setting={emailSubmissionSetting}
       />
     </>
   );

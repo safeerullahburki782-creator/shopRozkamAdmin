@@ -361,3 +361,40 @@ export const updateReferralBonusPerEmail = async (data: any, token: string) => {
     throw error;
   }
 };
+
+// email submission (disable/enable user email submission)
+// Throws so a failed refetch keeps the last loaded setting instead of replacing it
+export const getEmailSubmissionSetting = async (token: string) => {
+  try {
+    const res = await axios.get(`${baseURL}/system-setting/email-submission`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "ngrok-skip-browser-warning": "true",
+      },
+    });
+    return res.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const updateEmailSubmissionSetting = async (
+  data: any,
+  token: string
+) => {
+  try {
+    const res = await axios.patch(
+      `${baseURL}/system-setting/email-submission`,
+      data,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    return res.data;
+  } catch (error) {
+    throw error;
+  }
+};

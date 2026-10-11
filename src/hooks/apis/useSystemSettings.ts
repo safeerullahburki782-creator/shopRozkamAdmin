@@ -7,6 +7,7 @@ import {
   addThresoldPerWeek,
   addWithdrawThreshold,
   getEmailReward,
+  getEmailSubmissionSetting,
   getReferralBonus,
   getReferralBonusPerEmail,
   getSignupBonus,
@@ -14,6 +15,7 @@ import {
   getThresoldPerWeek,
   getWithdrawThreshold,
   updateEmailReward,
+  updateEmailSubmissionSetting,
   updateReferralBonus,
   updateReferralBonusPerEmail,
   updateSignupBonus,
@@ -460,6 +462,40 @@ export const useUpdateReferralBonusPerEmail = () => {
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message);
+    },
+  });
+};
+
+// email submission (disable/enable user email submission)
+export const useGetEmailSubmissionSetting = (token: string) => {
+  return useQuery<any, Error>({
+    queryKey: ["emailSubmissionSetting", token],
+    queryFn: () => getEmailSubmissionSetting(token),
+    staleTime: 60000,
+    refetchOnWindowFocus: false,
+  });
+};
+
+export const useUpdateEmailSubmissionSetting = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ data, token }: { data: any; token: string }) =>
+      updateEmailSubmissionSetting(data, token),
+    onSuccess: (data: any, variables: { data: any; token: string }) => {
+      if (data?.success) {
+        toast.success(data.message);
+        queryClient.invalidateQueries({
+          queryKey: ["emailSubmissionSetting", variables.token],
+        });
+      } else {
+        toast.error(data?.message);
+      }
+    },
+    onError: (error: any) => {
+      toast.error(
+        error?.response?.data?.message ||
+          "Could not update email submission. Please try again."
+      );
     },
   });
 };

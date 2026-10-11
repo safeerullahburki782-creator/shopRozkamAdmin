@@ -23,3 +23,11 @@ interface Option {
   value: string;
   label: string;
 }
+
+interface EmailSubmissionSetting {
+  isDisabled: boolean;
+  title: string | null;
+  message: string | null;
+  resumeAt: string | null;
+  updatedAt: string | null;
+}
