@@ -1,5 +1,6 @@
 import {
   deleteBulkEmails,
+  deleteEmailsByUuids,
   emailBulkUpdate,
   emailBulkUpdateUuids,
   getDuplicateEmailsList,
@@ -10,6 +11,7 @@ import {
   searchBulkEmails,
 } from "@/api/emails";
 import {
+  keepPreviousData,
   useMutation,
   useQuery,
   useQueryClient,
@@ -21,6 +23,9 @@ export const useGetAllEmails = (token: string, filters: any) => {
   return useQuery<any, Error>({
     queryKey: ["allEmails", token, filters.page, filters.limit, filters.status, filters.startDate, filters.endDate, filters.orderBy],
     queryFn: () => getEmailsList(token, filters),
+    // keep showing the current page while the next one loads, so the table
+    // (and its column filters) stays on screen
+    placeholderData: keepPreviousData,
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || "Failed to fetch emails");
     },
@@ -158,6 +163,27 @@ export const useDeleteBulkEmails = () => {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message);
+    },
+  });
+};
+
+export const useDeleteEmailsByUuids = (token: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (uuids: string[]) => deleteEmailsByUuids(uuids, token),
+    onSuccess: (data: any) => {
+      if (data?.success) {
+        toast.success(data?.message);
+        queryClient.invalidateQueries({ queryKey: ["allEmails"] });
+      } else {
+        toast.error(
+          data?.response?.data?.message ||
+            "Could not delete the selected emails."
+        );
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message);
     },
   });
 };

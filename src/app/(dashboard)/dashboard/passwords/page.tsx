@@ -40,14 +40,12 @@ const Passwords = () => {
       {
         Header: "Created At",
         accessor: "createdAt",
-        disableFilter: true,
         Cell: ({ row }: any) =>
           format(new Date(row.original.createdAt), "dd MMM yyyy, hh:mm a"),
       },
       {
         Header: "Updated At",
         accessor: "updatedAt",
-        disableFilter: true,
         Cell: ({ row }: any) =>
           format(new Date(row.original.updatedAt), "dd MMM yyyy, hh:mm a"),
       },

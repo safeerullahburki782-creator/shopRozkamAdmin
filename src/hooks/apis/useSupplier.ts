@@ -1,4 +1,5 @@
 import {
+  bulkDeleteSuppliers,
   createSupplier,
   deleteSecondaryPhone,
   deleteSupplier,
@@ -111,6 +112,28 @@ export const useDeleteSupplier = (token: string) => {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message);
+    },
+  });
+};
+
+export const useBulkDeleteSuppliers = (token: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (uuids: string[]) => bulkDeleteSuppliers(uuids, token),
+    onSuccess: (data: any) => {
+      if (data?.success) {
+        toast.success(data?.message);
+        queryClient.invalidateQueries({ queryKey: ["allSuppliers"] });
+        queryClient.invalidateQueries({ queryKey: ["allIactiveSupp"] });
+      } else {
+        toast.error(
+          data?.response?.data?.message ||
+            "Could not delete the selected suppliers."
+        );
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message);
     },
   });
 };

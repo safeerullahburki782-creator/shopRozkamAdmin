@@ -195,7 +195,8 @@ const Withdrawals = () => {
     {
       Header: "Screenshot",
       accessor: "paymentScreenshot",
-      disableFilter: true,
+      filterValue: (row: any) =>
+        row.paymentScreenshot?.trim() ? "Has screenshot" : "",
       Cell: ({ row }: any) => {
         const imageUrl = row.original.paymentScreenshot;
         const hasImage = imageUrl && imageUrl.trim() !== "";
@@ -220,14 +221,15 @@ const Withdrawals = () => {
     {
       Header: "Created At",
       accessor: "createdAt",
-      disableFilter: true,
       Cell: ({ row }: any) =>
         format(new Date(row.original.createdAt), "dd MMM yyyy, hh:mm a"),
     },
     {
-      Header: "",
+      Header: "Actions",
       accessor: "actions",
-      disableFilter: true,
+      // processed withdrawals have no actions (blank)
+      filterValue: (row: any) =>
+        row.status === "approved" || row.status === "rejected" ? "" : "Edit",
       Cell: ({ row }: any) => {
         const status = row.original.status;
         if (status === "approved" || status === "rejected") {
@@ -271,7 +273,6 @@ const Withdrawals = () => {
       {
         Header: "Type",
         accessor: "withdrawalType",
-        disableFilter: true,
         Cell: ({ row }: any) => {
           const raw = row.original.withdrawalType || "";
           const formatted =
@@ -324,14 +325,13 @@ const Withdrawals = () => {
       {
         Header: "Created At",
         accessor: "createdAt",
-        disableFilter: true,
         Cell: ({ row }: any) =>
           format(new Date(row.original.createdAt), "dd MMM yyyy, hh:mm a"),
       },
       {
-        Header: "",
+        Header: "Actions",
         accessor: "actions",
-        disableFilter: true,
+        filterValue: () => "Edit",
         Cell: ({ row }: any) => (
           <div className="flex items-center justify-end gap-2.5">
             <Button

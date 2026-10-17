@@ -207,6 +207,8 @@ const SupplierDetails = ({ params }: { params: { id: string } }) => {
     amount: item.amount,
     status: item.status,
     remarks: item.remarks ?? "-",
+    // raw date for filtering/sorting by day; `date` is what the cell shows
+    createdAt: item.createdAt,
     date: format(new Date(item.createdAt), "dd MMM yyyy, hh:mm a"),
     emailCount: item.withdrawnEmailUuids?.length ?? 0,
   }));
@@ -217,6 +219,7 @@ const SupplierDetails = ({ params }: { params: { id: string } }) => {
     amount: item.amount,
     status: item.status,
     remarks: item.remarks ?? "-",
+    createdAt: item.createdAt,
     date: format(new Date(item.createdAt), "dd MMM yyyy, hh:mm a"),
   }));
 
@@ -720,7 +723,12 @@ const SupplierDetails = ({ params }: { params: { id: string } }) => {
                     { Header: "Amount", accessor: "amount" },
                     { Header: "Status", accessor: "status" },
                     { Header: "Remarks", accessor: "remarks" },
-                    { Header: "Date", accessor: "date" },
+                    {
+                      Header: "Date",
+                      accessor: "createdAt",
+                      Cell: ({ row }: any) => row.original.date,
+                      exportValue: (row: any) => row.date,
+                    },
                     { Header: "Emails", accessor: "emailCount" },
                   ]}
                   data={renderEmailWithdrawals}
@@ -742,7 +750,12 @@ const SupplierDetails = ({ params }: { params: { id: string } }) => {
                     { Header: "Amount", accessor: "amount" },
                     { Header: "Status", accessor: "status" },
                     { Header: "Remarks", accessor: "remarks" },
-                    { Header: "Date", accessor: "date" },
+                    {
+                      Header: "Date",
+                      accessor: "createdAt",
+                      Cell: ({ row }: any) => row.original.date,
+                      exportValue: (row: any) => row.date,
+                    },
                   ]}
                   data={renderBonusWithdrawals}
                   paginate={renderBonusWithdrawals.length > 5}
@@ -765,9 +778,9 @@ const SupplierDetails = ({ params }: { params: { id: string } }) => {
                     { Header: "Method Type", accessor: "methodType" },
                     { Header: "Account Number", accessor: "accountNumber" },
                     {
-                      Header: "",
+                      Header: "Actions",
                       accessor: "actions",
-                      disableFilter: true,
+                      filterValue: () => "Edit, Delete",
                       Cell: ({ row }: any) => (
                         <div className="flex items-center justify-end gap-2.5">
                           <Button

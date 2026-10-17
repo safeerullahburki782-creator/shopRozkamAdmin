@@ -84,6 +84,23 @@ export const deleteSupplier = async (uuid: any, token: string) => {
   }
 };
 
+export const bulkDeleteSuppliers = async (uuids: string[], token: string) => {
+  try {
+    const res = await axios.post(
+      `${baseURL}/supplier/bulk-delete`,
+      { uuids },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return res.data;
+  } catch (error) {
+    return error;
+  }
+};
+
 export const updateSecondaryNo = async (data: any, token: string) => {
   try {
     const res = await axios.patch(

@@ -3,15 +3,20 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useContextConsumer } from "@/context/Context";
 import { Button } from "@/components/ui/button";
-import { Filter, Search, X } from "lucide-react";
+import { Filter, Search, Trash2, X } from "lucide-react";
 import DataTable from "@/components/Table/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { Toaster } from "react-hot-toast";
 import { SkeletonCard } from "@/components/Loaders/SkeletonLoader";
 import { format } from "date-fns";
 import { debounce } from "lodash";
-import { useGetAllEmails, useGetDuplicateEmails } from "@/hooks/apis/useEmails";
+import {
+  useDeleteEmailsByUuids,
+  useGetAllEmails,
+  useGetDuplicateEmails,
+} from "@/hooks/apis/useEmails";
 import BulkEmailUpdateModal from "@/components/Forms/forms-modal/emails/BulkEmail";
+import { SweetAlert } from "@/components/alerts/SweetAlert";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { useForm } from "react-hook-form";
@@ -41,6 +46,9 @@ import { useSearchParams } from "next/navigation";
 import InsertEmailsModals from "@/components/Forms/forms-modal/emails/InsertBulkEmails";
 import Link from "next/link";
 
+// Emails loaded per server page by default
+const EMAILS_PAGE_SIZE = 2000;
+
 const Emails = () => {
   const { token } = useContextConsumer();
   const searchParams = useSearchParams();
@@ -57,7 +65,7 @@ const Emails = () => {
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageLimit, setPageLimit] = useState(100);
+  const [pageLimit, setPageLimit] = useState(EMAILS_PAGE_SIZE);
 
   const [filterCriteria, setFilterCriteria] = useState<{
     status: string;
@@ -69,7 +77,7 @@ const Emails = () => {
   }>({
     status: "",
     page: 1,
-    limit: 100,
+    limit: EMAILS_PAGE_SIZE,
   });
 
   const form = useForm<z.infer<typeof filterEmailSchema>>({
@@ -97,7 +105,7 @@ const Emails = () => {
     totalEmails: 0,
     totalPages: 0,
     currentPage: 1,
-    limit: 100,
+    limit: EMAILS_PAGE_SIZE,
   };
 
   const handleSearchChange = debounce((value: string) => {
@@ -171,10 +179,25 @@ const handlePageLimitChange = (newLimit: number) => {
     }
   }, [searchParams]);
 
-  const toggleEmailSelection = (uuid: string) => {
-    setSelectedUUIDs((prev) =>
-      prev.includes(uuid) ? prev.filter((id) => id !== uuid) : [...prev, uuid]
+  const { mutate: deleteEmailsByUuids, isPending: deletingSelected } =
+    useDeleteEmailsByUuids(token);
+
+  const handleDeleteSelected = async () => {
+    const count = selectedUUIDs.length;
+    const isConfirmed = await SweetAlert(
+      `Delete ${count} email${count === 1 ? "" : "s"}?`,
+      "This permanently deletes the selected emails. It cannot be undone.",
+      "warning",
+      "Yes, delete them!",
+      "#15803D"
     );
+    if (isConfirmed) {
+      deleteEmailsByUuids(selectedUUIDs, {
+        onSuccess: (res: any) => {
+          if (res?.success) setSelectedUUIDs([]);
+        },
+      });
+    }
   };
 
   const duplicateColumns = useMemo(
@@ -201,7 +224,6 @@ const handlePageLimitChange = (newLimit: number) => {
       {
         Header: "Duplicate File",
         accessor: "fileName",
-        disableFilter: true,
       },
       {
         Header: "Uploader",
@@ -210,7 +232,6 @@ const handlePageLimitChange = (newLimit: number) => {
       {
         Header: "Original File",
         accessor: "originalEmail.fileName",
-        disableFilter: true,
       },
     ],
     []
@@ -219,21 +240,8 @@ const handlePageLimitChange = (newLimit: number) => {
   const emailColumns = useMemo(
     () => [
       {
-        Header: "",
-        accessor: "select",
-        disableFilter: true,
-        Cell: ({ row }: any) => (
-          <input
-            type="checkbox"
-            checked={selectedUUIDs.includes(row.original.uuid)}
-            onChange={() => toggleEmailSelection(row.original.uuid)}
-          />
-        ),
-      },
-      {
         Header: "Uploaded At",
         accessor: "createdAt",
-        disableFilter: true,
         Cell: ({ row }: any) =>
           format(new Date(row.original.createdAt), "dd MMM yyyy, hh:mm a"),
       },
@@ -376,7 +384,6 @@ const handlePageLimitChange = (newLimit: number) => {
       {
         Header: "Amount",
         accessor: "amount",
-        disableFilter: true,
         Cell: ({ row }: any) =>
           row.original.status === "good" ? (
             <span>{row.original.amount ?? "-"}</span>
@@ -387,7 +394,7 @@ const handlePageLimitChange = (newLimit: number) => {
     {
   Header: "Screenshot",
   accessor: "emailScreenshot",
-  disableFilter: true,
+  filterValue: (row: any) => (row.emailScreenshot ? "Has screenshot" : ""),
   Cell: ({ row }: any) => (
     <a  // ← This was missing!
       href={row.original.emailScreenshot}
@@ -402,7 +409,6 @@ const handlePageLimitChange = (newLimit: number) => {
     {
         Header: "Updated At",
         accessor: "updatedAt",
-        disableFilter: true,
         Cell: ({ row }: any) => {
           const rawDate = row.original.updatedAt;
           if (!rawDate) return "-";
@@ -417,12 +423,62 @@ const handlePageLimitChange = (newLimit: number) => {
         },
       },
     ],
-    [selectedUUIDs]
+    []
   );
   
 
   const emailsToDisplay =
     searchedEmails.length > 0 ? searchedEmails : filteredEmails;
+
+  // Server paging, shown above and below the table
+  const paginationControls = (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 my-4 px-4">
+      <div className="flex items-center gap-4">
+        <span className="text-sm text-muted-foreground">
+          Showing {((currentPage - 1) * pageLimit) + 1} to{" "}
+          {Math.min(currentPage * pageLimit, pagination.totalEmails)} of{" "}
+          {pagination.totalEmails} emails
+        </span>
+
+        <select
+          value={pageLimit}
+          onChange={(e) => handlePageLimitChange(Number(e.target.value))}
+          className="border rounded-md px-3 py-1.5 text-sm bg-white dark:bg-gray-800"
+        >
+          <option value={50}>50 per page</option>
+          <option value={100}>100 per page</option>
+          <option value={200}>200 per page</option>
+          <option value={500}>500 per page</option>
+          <option value={1000}>1000 per page</option>
+          <option value={2000}>2000 per page</option>
+        </select>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handlePreviousPage}
+          disabled={currentPage === 1}
+        >
+          Previous
+        </Button>
+
+        <span className="text-sm px-2">
+          Page {currentPage} of {pagination.totalPages}
+        </span>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleNextPage}
+          disabled={currentPage >= pagination.totalPages}
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  );
 
   console.log(emailsToDisplay, "emailsToDisplay");
 
@@ -633,59 +689,34 @@ const handlePageLimitChange = (newLimit: number) => {
           <p>No Email Data Available!</p>
         ) : (
           <>
+            {paginationControls}
             <div className="border rounded-2xl">
+              {/* the page's own "Bulk Search Emails" searches all emails */}
               <DataTable
                 columns={emailColumns}
                 data={emailsToDisplay}
                 paginate={false}
+                bulkSearch={false}
+                selection={{
+                  selected: selectedUUIDs,
+                  onChange: setSelectedUUIDs,
+                  getRowId: (row: any) => row.uuid,
+                  actions: (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-8"
+                      disabled={deletingSelected}
+                      onClick={handleDeleteSelected}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1" />
+                      Delete Selected ({selectedUUIDs.length})
+                    </Button>
+                  ),
+                }}
               />
             </div>
-
-            {/* Custom Pagination Controls */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 px-4">
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-muted-foreground">
-                  Showing {((currentPage - 1) * pageLimit) + 1} to{" "}
-                  {Math.min(currentPage * pageLimit, pagination.totalEmails)} of{" "}
-                  {pagination.totalEmails} emails
-                </span>
-
-                <select
-                  value={pageLimit}
-                  onChange={(e) => handlePageLimitChange(Number(e.target.value))}
-                  className="border rounded-md px-3 py-1.5 text-sm bg-white dark:bg-gray-800"
-                >
-                  <option value={50}>50 per page</option>
-                  <option value={100}>100 per page</option>
-                  <option value={200}>200 per page</option>
-                  <option value={500}>500 per page</option>
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePreviousPage}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-
-                <span className="text-sm px-2">
-                  Page {currentPage} of {pagination.totalPages}
-                </span>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleNextPage}
-                  disabled={currentPage >= pagination.totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
+            {paginationControls}
           </>
         )}
 

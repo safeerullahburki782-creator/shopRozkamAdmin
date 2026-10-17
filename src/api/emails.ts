@@ -124,6 +124,24 @@ export const deleteBulkEmails = async (data: any, token: any) => {
   }
 };
 
+// Deletes exactly the selected rows (the same address can be in several rows)
+export const deleteEmailsByUuids = async (uuids: string[], token: string) => {
+  try {
+    const res = await axios.post(
+      `${baseURL}/email/bulk-delete-by-uuids`,
+      { uuids },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return res.data;
+  } catch (error) {
+    return error;
+  }
+};
+
 export const getSupplierList = async (token: string) => {
   try {
     const res = await axios.get(`${baseURL}/supplier/simple-list`, {

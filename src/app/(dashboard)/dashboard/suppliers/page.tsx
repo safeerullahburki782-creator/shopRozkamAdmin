@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import {
+  useBulkDeleteSuppliers,
   useDeleteSupplier,
   useGetAllSuppliers,
 } from "@/hooks/apis/useSupplier";
@@ -65,6 +66,7 @@ const Suppliers = () => {
   const [filterCriteria, setFilterCriteria] = useState<any>({
     active: "",
   });
+  const [selectedSupplierIds, setSelectedSupplierIds] = useState<string[]>([]);
 
   const form = useForm<z.infer<typeof filterSupplierSchema>>({
     resolver: zodResolver(filterSupplierSchema),
@@ -131,6 +133,27 @@ const Suppliers = () => {
     );
     if (isConfirmed) {
       deleteSupplier(supplierId);
+    }
+  };
+
+  const { mutate: bulkDeleteSuppliers, isPending: bulkDeleting } =
+    useBulkDeleteSuppliers(token);
+
+  const handleBulkDelete = async () => {
+    const count = selectedSupplierIds.length;
+    const isConfirmed = await SweetAlert(
+      `Delete ${count} supplier${count === 1 ? "" : "s"}?`,
+      "This permanently deletes the selected suppliers. It cannot be undone.",
+      "warning",
+      "Yes, delete them!",
+      "#15803D"
+    );
+    if (isConfirmed) {
+      bulkDeleteSuppliers(selectedSupplierIds, {
+        onSuccess: (res: any) => {
+          if (res?.success) setSelectedSupplierIds([]);
+        },
+      });
     }
   };
 
@@ -240,9 +263,9 @@ const Suppliers = () => {
         ),
       },
       {
-        Header: "",
+        Header: "Actions",
         accessor: "actions",
-        disableFilter: true,
+        filterValue: () => "Edit, Delete",
         Cell: ({ row }: any) => (
           <div className="flex items-center justify-end gap-2.5">
             <Button
@@ -391,6 +414,23 @@ const Suppliers = () => {
               columns={supplierColumns}
               data={filteredSuppliers}
               paginate={filteredSuppliers.length > 10}
+              selection={{
+                selected: selectedSupplierIds,
+                onChange: setSelectedSupplierIds,
+                getRowId: (row: any) => row.uuid,
+                actions: (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="h-8"
+                    disabled={bulkDeleting}
+                    onClick={handleBulkDelete}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1" />
+                    Delete Selected ({selectedSupplierIds.length})
+                  </Button>
+                ),
+              }}
             />
           </div>
         )}
